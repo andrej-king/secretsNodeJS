@@ -1,13 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-// const ejs = require('ejs');
 const mongoose = require('mongoose');
 const md5 = require('md5');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
-//const encrypt = require('mongoose-encryption');
 const PORT = process.env.PORT || 3000;
 const app = express();
 
@@ -25,7 +23,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect(`mongodb://${process.env.DB_SERVER}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+mongoose.connect(`mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.jxyt0.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`,
 	{
 		useNewUrlParser: true,
 		useUnifiedTopology: true
@@ -39,8 +37,6 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.plugin(passportLocalMongoose);
-
-// userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
 
 const User = new mongoose.model("User", userSchema);
 passport.use(User.createStrategy());
@@ -113,41 +109,31 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-	const user = new User({
-		username: req.body.username,
-		password: req.body.password
-	});
+	let username = req.body.username.trim();
+	let password = req.body.password.trim();
+	if (username !== "" && password !== "") {
+		const user = new User({
+			username: username,
+			password: password
+		});
 
-	req.login(user, (error) => {
-		if (error) {
-			console.log(error);
-		} else {
-			passport.authenticate("local")(req, res, () => {
-				res.redirect('/secrets');
-			});
-			res.redirect('/login');
-		}
-	});
-
-	// const userName = req.body.username;
-	// const password = md5(req.body.password);
-	//
-	// User.findOne({
-	// 	email: userName,
-	// 	password: password
-	// }, (error, userFound) => {
-	// 	if (error) {
-	// 		console.log(error);
-	// 	} else {
-	// 		console.log(userFound);
-	// 		console.log("password: " + password);
-	// 		if (userFound) {
-	// 			res.render("secrets");
-	// 		} else {
-	// 			res.render("login");
-	// 		}
-	// 	}
-	// });
+		req.login(user, (error) => {
+			if (error) {
+				console.log(error);
+			} else {
+				passport.authenticate('local', function(err, user) {
+					if (err) { console.log(err); }
+					if (!user) { return res.redirect('/login'); }
+					req.logIn(user, function(err) {
+						if (err) { console.log(err); }
+						return res.redirect('/secrets');
+					});
+				})(req, res);
+			}
+		});
+	} else {
+		res.redirect('/login');
+	}
 });
 
 app.get('/logout', (req, res) => {
